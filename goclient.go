@@ -11,24 +11,39 @@ import (
 
 // @todo think about formats other than JSON
 
-var DefaultUrl = "https://1backend.com:9993"
+// Url is the address of a 1backend installation.
+// The default value is https://1backend.com:9993, change this to your own installation be either changing this variable
+// or by having an environment variable with the name 1BACKEND_URL on your host.
+var Url = "https://1backend.com:9993"
+
+// CallerId is a secret key, specific to each project, which gets translated to a project name for namespacing
+// by the proxy. This enables 1backend apps to namespace their database based on the caller's identity.
+// It comes from the environment variable name CALLER_ID.
+//
+// To read more see: https://github.com/1backend/1backend/blob/master/docs/namespacing.md
+var CallerId = ""
 
 func init() {
-	sa := os.Getenv("SERVICEADDRESS")
+	sa := os.Getenv("1BACKEND_URL")
 	if sa != "" {
-		DefaultUrl = sa
+		Url = sa
 	}
+	CallerId = os.Getenv("CALLER_ID")
 }
 
 type GoClient struct {
 	Token string
 	Url   string
+	// CallerId - by default this comes from the CALLER_ID environment variable.
+	// You can modify it if you want to pass on a caller id coming from the current request header.
+	CallerId string
 }
 
 func New(token string) GoClient {
 	return GoClient{
-		Token: token,
-		Url:   DefaultUrl,
+		Token:    token,
+		Url:      Url,
+		CallerId: CallerId,
 	}
 }
 
@@ -48,6 +63,7 @@ func (g GoClient) Call(author, projectName, method, path string, input map[strin
 	}
 	req.Header = make(http.Header)
 	req.Header.Set("token", g.Token)
+	req.Header.Set("caller-id", g.CallerId)
 	if method == "GET" || method == "PUT" {
 		for key, value := range input {
 			req.Form.Add(key, fmt.Sprintf("%v", value))
